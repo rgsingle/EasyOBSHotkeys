@@ -1,4 +1,6 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace BetterInputMacros
 {
@@ -47,38 +49,101 @@ namespace BetterInputMacros
 
         #endregion
 
+        const string appsettingsFilename = "appsettings.json";
+
+        private static string? server;
+        private static string? password = null;
+        private static readonly Dictionary<int, Action> commands = new();
+
         public static void RegisterFunctionKeys(IntPtr handle)
         {
-            // Register hotkeys for the F13-F24 keys, set to id's 13-24
-            RegisterHotKey(handle, 13, KeyModifiers.None, 124);
-            RegisterHotKey(handle, 14, KeyModifiers.None, 125);
-            RegisterHotKey(handle, 15, KeyModifiers.None, 126);
-            RegisterHotKey(handle, 16, KeyModifiers.None, 127);
-            RegisterHotKey(handle, 17, KeyModifiers.None, 128);
-            RegisterHotKey(handle, 18, KeyModifiers.None, 129);
-            RegisterHotKey(handle, 19, KeyModifiers.None, 130);
-            RegisterHotKey(handle, 20, KeyModifiers.None, 131);
-            RegisterHotKey(handle, 21, KeyModifiers.None, 132);
-            RegisterHotKey(handle, 22, KeyModifiers.None, 133);
-            RegisterHotKey(handle, 23, KeyModifiers.None, 134);
-            RegisterHotKey(handle, 24, KeyModifiers.None, 135);
+            try
+            {
+                commands.Clear();
+
+                var appsettings = JsonDocument.Parse(File.ReadAllText(appsettingsFilename), new JsonDocumentOptions()
+                {
+                    AllowTrailingCommas = true,
+                    CommentHandling = JsonCommentHandling.Skip
+                });
+
+                // Load Server
+                if (appsettings.RootElement.TryGetProperty("server", out var serverProp) &&
+                    serverProp.ValueKind == JsonValueKind.String)
+                    server = serverProp.GetString();
+                else
+                    server = null;
+
+                server ??= "127.0.0.1:4444";
+
+                // Load Password
+                if (appsettings.RootElement.TryGetProperty("password", out var passProp) && 
+                    passProp.ValueKind == JsonValueKind.String)
+                    password = passProp.GetString();
+                else
+                    password = null;
+
+                // Register Hotkeys
+                if(appsettings.RootElement.TryGetProperty("commands", out var commandsProp))
+                {
+                    foreach(var commandProp in commandsProp.EnumerateArray())
+                    {
+                        if(commandProp.TryGetProperty("keycode", out var keycodeProp) &&
+                            keycodeProp.ValueKind == JsonValueKind.Number &&
+                           commandProp.TryGetProperty("scene", out var sceneProp) &&
+                           sceneProp.ValueKind == JsonValueKind.String)
+                        {
+                            var keycode = keycodeProp.GetInt32();
+
+                            var action = () =>
+                            {
+                                var args = $"/server={server}";
+                                if (password != null)
+                                    args += $" /password={password}";
+
+                                args += $" /scene=\"{sceneProp.GetString()}\"";
+
+                                var obscommand = Process.Start(new ProcessStartInfo("OBSCommand.exe")
+                                {
+                                    Arguments = args,
+                                    RedirectStandardOutput = true,
+                                    WindowStyle = ProcessWindowStyle.Hidden,
+                                    CreateNoWindow = true
+                                });
+
+                                if (obscommand != null)
+                                {
+                                    obscommand?.WaitForExit();
+
+                                    var result = obscommand?.StandardOutput.ReadToEnd();
+
+                                    if (result != "Ok")
+                                    {
+                                        MessageBox.Show(result, "Error");
+                                    }
+                                }
+                            };
+
+                            commands.Add(keycode, action);
+                            RegisterHotKey(handle, keycode, KeyModifiers.None, (uint)keycode);
+                        }
+                    }
+                }
+
+                MessageBox.Show("Registered!");
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show("Oops: " + ex.ToString());
+            }
         }
 
         public static void UnregisterFunctionKeys(IntPtr handle)
         {
-            // Unregister hotkeys for the F13-F24 keys, set to id's 13-24
-            UnregisterHotKey(handle, 13);
-            UnregisterHotKey(handle, 14);
-            UnregisterHotKey(handle, 15);
-            UnregisterHotKey(handle, 16);
-            UnregisterHotKey(handle, 17);
-            UnregisterHotKey(handle, 18);
-            UnregisterHotKey(handle, 19);
-            UnregisterHotKey(handle, 20);
-            UnregisterHotKey(handle, 21);
-            UnregisterHotKey(handle, 22);
-            UnregisterHotKey(handle, 23);
-            UnregisterHotKey(handle, 24);
+            foreach(var item in commands)
+            {
+                UnregisterHotKey(handle, item.Key);
+            }
         }
 
         public static void ProcessMessage(Message message)
@@ -86,9 +151,9 @@ namespace BetterInputMacros
             // We're going to do the laziest possible job of file creation
             int id = message.WParam.ToInt32();
 
-            if (id >= 13 && id <= 24)
+            if(commands.TryGetValue(id, out var action))
             {
-                File.WriteAllText($"F{id}.txt", $"F{id}");
+                action.Invoke();
             }
         }
     }
