@@ -103,24 +103,31 @@ namespace BetterInputMacros
 
                                 args += $" /scene=\"{sceneProp.GetString()}\"";
 
-                                var obscommand = Process.Start(new ProcessStartInfo("OBSCommand.exe")
+                                try
                                 {
-                                    Arguments = args,
-                                    RedirectStandardOutput = true,
-                                    WindowStyle = ProcessWindowStyle.Hidden,
-                                    CreateNoWindow = true
-                                });
-
-                                if (obscommand != null)
-                                {
-                                    obscommand?.WaitForExit();
-
-                                    var result = obscommand?.StandardOutput.ReadToEnd();
-
-                                    if (result != "Ok")
+                                    var obscommand = Process.Start(new ProcessStartInfo("OBSCommand.exe")
                                     {
-                                        MessageBox.Show(result, "Error");
+                                        Arguments = args,
+                                        RedirectStandardOutput = true,
+                                        WindowStyle = ProcessWindowStyle.Hidden,
+                                        CreateNoWindow = true
+                                    });
+
+                                    if (obscommand != null)
+                                    {
+                                        obscommand?.WaitForExit();
+
+                                        var result = obscommand?.StandardOutput.ReadToEnd();
+
+                                        if (result != "Ok")
+                                        {
+                                            MessageBox.Show(result, "Error");
+                                        }
                                     }
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show(ex.ToString(), "Error Running OBSCommand");
                                 }
                             };
 
