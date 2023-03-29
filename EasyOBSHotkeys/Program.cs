@@ -12,6 +12,12 @@ namespace BetterInputMacros
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
 
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                // TODO: Logging
+                MessageBox.Show("An unhandled exception has occurred, but I handled it.", "BIG OOPS");
+            };
+
             Application.Run(new MainForm());
         }
     }
