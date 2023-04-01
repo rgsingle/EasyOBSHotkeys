@@ -47,8 +47,6 @@ namespace EasyOBSHotkeys.Utilities
 
         #endregion
 
-        public event EventHandler<uint>? HotKeyEvent;
-
         private readonly List<uint> _registeredHotkeys;
         private readonly IntPtr _windowHandle;
 
@@ -58,19 +56,40 @@ namespace EasyOBSHotkeys.Utilities
             _windowHandle = windowHandle;
         }
 
-
-        public void RegisterHotKeys(uint[] keyCodes)
+        /// <summary>
+        /// Registers the specified virtual key codes as hotkeys
+        /// </summary>
+        /// <param name="keyCodes">Virtual Key Codes to register</param>
+        /// <returns>Number of hotkeys registered</returns>
+        public int RegisterHotKeys(uint[] keyCodes)
         {
-            _registeredHotkeys.Clear();
-
-            // Register Hotkeys
-            foreach (var keyCode in keyCodes)
+            try
             {
-                RegisterHotKey(_windowHandle, (int)keyCode, KeyModifiers.None, keyCode);
-                _registeredHotkeys.Add(keyCode);
+                int i = 0;
+                _registeredHotkeys.Clear();
+
+                // Register Hotkeys
+                foreach (var keyCode in keyCodes)
+                {
+                    RegisterHotKey(_windowHandle, (int)keyCode, KeyModifiers.None, keyCode);
+                    _registeredHotkeys.Add(keyCode);
+                    i++;
+                }
+
+                return i;
+            }
+            catch (Exception)
+            {
+                MessageBox.Show("An error occurred while registering hotkeys!", "Hotkey Register Error",
+                                MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                return -1;
             }
         }
 
+        /// <summary>
+        /// Unregister all hotkeys that are registered
+        /// </summary>
         public void UnregisterHotKeys()
         {
             foreach (var hotkey in _registeredHotkeys)
@@ -79,14 +98,6 @@ namespace EasyOBSHotkeys.Utilities
             }
 
             _registeredHotkeys.Clear();
-        }
-
-        public void ProcessMessage(Message message)
-        {
-            // We're going to do the laziest possible job of file creation
-            int id = message.WParam.ToInt32();
-
-            HotKeyEvent?.Invoke(null, (uint)id);
         }
     }
 }

@@ -29,10 +29,7 @@
         private void InitializeComponent()
         {
             selectFileDialog = new SaveFileDialog();
-            statusStrip = new StatusStrip();
-            obsStatusLabel = new ToolStripStatusLabel();
-            enableCheckbox = new CheckBox();
-            statusStrip.SuspendLayout();
+            obsStatusLabel = new Label();
             SuspendLayout();
             // 
             // selectFileDialog
@@ -41,53 +38,33 @@
             selectFileDialog.DefaultExt = "txt";
             selectFileDialog.Filter = "Text Files|*.txt|All files|*.*";
             // 
-            // statusStrip
-            // 
-            statusStrip.Items.AddRange(new ToolStripItem[] { obsStatusLabel });
-            statusStrip.Location = new Point(0, 45);
-            statusStrip.Name = "statusStrip";
-            statusStrip.Size = new Size(305, 22);
-            statusStrip.TabIndex = 2;
-            statusStrip.Text = "statusStrip1";
-            // 
             // obsStatusLabel
             // 
+            obsStatusLabel.AutoSize = true;
+            obsStatusLabel.Location = new Point(12, 9);
             obsStatusLabel.Name = "obsStatusLabel";
-            obsStatusLabel.Size = new Size(107, 17);
+            obsStatusLabel.Size = new Size(107, 15);
+            obsStatusLabel.TabIndex = 3;
             obsStatusLabel.Text = "OBS: Disconnected";
-            // 
-            // enableCheckbox
-            // 
-            enableCheckbox.AutoSize = true;
-            enableCheckbox.Location = new Point(12, 15);
-            enableCheckbox.Name = "enableCheckbox";
-            enableCheckbox.Size = new Size(108, 19);
-            enableCheckbox.TabIndex = 3;
-            enableCheckbox.Text = "Enable HotKeys";
-            enableCheckbox.UseVisualStyleBackColor = true;
-            enableCheckbox.CheckedChanged += enableCheckbox_CheckedChanged;
             // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(305, 67);
-            Controls.Add(enableCheckbox);
-            Controls.Add(statusStrip);
+            ClientSize = new Size(305, 38);
+            Controls.Add(obsStatusLabel);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             Name = "MainForm";
             Text = "Easy OBS Hotkeys";
-            statusStrip.ResumeLayout(false);
-            statusStrip.PerformLayout();
+            FormClosing += MainForm_FormClosing;
+            Load += MainForm_Load;
             ResumeLayout(false);
             PerformLayout();
         }
 
         #endregion
         private SaveFileDialog selectFileDialog;
-        private StatusStrip statusStrip;
-        private ToolStripStatusLabel obsStatusLabel;
-        private CheckBox enableCheckbox;
+        private Label obsStatusLabel;
     }
 }

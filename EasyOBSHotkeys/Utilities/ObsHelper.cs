@@ -34,7 +34,7 @@ namespace EasyOBSHotkeys.Utilities
             ConnectedEvent?.Invoke(this, EventArgs.Empty);
         }
 
-        public void Connect(string host, string? password)
+        public bool Connect(string host, string? password)
         {
             try
             {
@@ -42,10 +42,15 @@ namespace EasyOBSHotkeys.Utilities
                     host = "ws://" + host;
                 
                 _obs.ConnectAsync(host, password ?? "");
+
+                return true;
             }
-            catch(Exception ex) 
+            catch(Exception) 
             {
-                // TODO: Logging
+                MessageBox.Show("An error occurred connecting to the OBS WebSocket!", "OBS Connection Error",
+                                MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                return false;
             }
         }
 
@@ -53,14 +58,14 @@ namespace EasyOBSHotkeys.Utilities
         {
             try
             {
-                if (!_obs.IsConnected)
-                    return;
-
                 _obs.SetCurrentProgramScene(scene);
             }
-            catch(Exception  ex)
+            catch
             {
                 // TODO: Logging
+
+                MessageBox.Show($"Errrrr, failed to switch to scene '{scene}'...", "Scene Switch F",
+                                MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

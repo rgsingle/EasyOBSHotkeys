@@ -15,7 +15,8 @@ namespace BetterInputMacros
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
                 // TODO: Logging
-                MessageBox.Show("An unhandled exception has occurred, but I handled it.", "BIG OOPS");
+                MessageBox.Show("An unhandled exception has occurred, but I handled it.", "BIG OOPS",
+                                MessageBoxButtons.OK, MessageBoxIcon.Error);
             };
 
             Application.Run(new MainForm());

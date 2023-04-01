@@ -1,4 +1,5 @@
 using EasyOBSHotkeys.Utilities;
+using System.Windows.Forms;
 
 namespace BetterInputMacros
 {
@@ -7,105 +8,52 @@ namespace BetterInputMacros
         AppConfiguration? configuration;
         readonly HotkeyHelper _hotkeyHelper;
         readonly ObsHelper _obsHelper;
-        readonly FileSystemWatcher _watcher;
+
+        int connectionAttempts = 0;
 
         public MainForm()
         {
             InitializeComponent();
 
             _hotkeyHelper = new HotkeyHelper(this.Handle);
-            _hotkeyHelper.HotKeyEvent += hotkeyHelper_HotKeyEvent;
 
             _obsHelper = new ObsHelper();
             _obsHelper.ConnectedEvent += obsHelper_OnConnected;
             _obsHelper.DisconnectedEvent += obsHelper_OnDisconnected;
+        }
 
-            _watcher = new FileSystemWatcher();
-            _watcher.Changed += fileSystemWatcher_Changed;
-            _watcher.Filter = "*.json";
-            _watcher.Path = Path.GetDirectoryName(Application.ExecutablePath) ?? "";
-            _watcher.EnableRaisingEvents = true;
-
+        private void MainForm_Load(object sender, EventArgs e)
+        {
+            // Load Config
             configuration = AppConfiguration.LoadConfig();
-        }
 
-        private void enableCheckbox_CheckedChanged(object sender, EventArgs e)
-        {
-            if (enableCheckbox.Checked && configuration != null)
+            if (configuration?.Server == null)
             {
-                if (configuration.Server != null)
-                {
-                    if (_obsHelper.IsConnected)
-                        _obsHelper.Disconnect();
-
-                    _obsHelper.Connect(configuration.Server, configuration.Password ?? "");
-                }
-
-                _hotkeyHelper.RegisterHotKeys(configuration.CommandsDictionary.Keys.ToArray());
-            }
-            else if (enableCheckbox.Checked == false)
-            {
-                _obsHelper.Disconnect();
-
-                _hotkeyHelper.UnregisterHotKeys();
-            }
-        }
-
-        private void unregisterButton_Click(object sender, EventArgs e)
-        {
-            if (_obsHelper.IsConnected)
-                _obsHelper.Disconnect();
-
-            _hotkeyHelper.UnregisterHotKeys();
-        }
-
-        private void hotkeyHelper_HotKeyEvent(object? sender, uint e)
-        {
-            if (!_obsHelper.IsConnected)
+                Application.Exit();
                 return;
-
-            if (configuration?.CommandsDictionary.TryGetValue(e, out var scene) == true &&
-                !string.IsNullOrWhiteSpace(scene))
-            {
-                _obsHelper.SetScene(scene);
             }
-        }
 
-        private void obsHelper_OnDisconnected(object? sender, string e)
-        {
-            obsStatusLabel.Text = "OBS: Disconnected";
+            // Connect to OBS
+            bool obs = _obsHelper.Connect(configuration.Server, configuration.Password ?? "");
 
-            if (e == null && configuration?.Server != null)
+            if (obs == false)
             {
-                _obsHelper.Connect(configuration.Server, configuration.Password ?? "");
-            }
-            else if (e != "User requested disconnect" && e != null)
-            {
-                if (e.StartsWith("Authentication"))
-                    MessageBox.Show("OBS authentication failed!", "OBS Error");
-                else
-                    MessageBox.Show("OBS disconnected unexpectedly: " + e, "OBS Error");
-
-                enableCheckbox.BeginInvoke(() => enableCheckbox.Checked = false);
-            }
-        }
-
-        private void obsHelper_OnConnected(object? sender, EventArgs e)
-        {
-            obsStatusLabel.Text = "OBS: Connected";
-        }
-
-        private void fileSystemWatcher_Changed(object sender, FileSystemEventArgs e)
-        {
-            if (e?.Name?.ToLower() != "appsettings.json") 
+                Application.Exit();
                 return;
+            }
 
-            // Configuration has changed, disconnect/unregister and reload
-            if (enableCheckbox.Checked)
-                enableCheckbox.BeginInvoke(() => enableCheckbox.Checked = false);
+            // Register Hotkeys
+            int keys = _hotkeyHelper.RegisterHotKeys(configuration.CommandsDictionary.Keys.ToArray());
 
-            configuration = AppConfiguration.LoadConfig();
-            MessageBox.Show("appsettings.json updated, please re-enable hotkeys!", "Settings Updated");
+            if (keys <= 0)
+            {
+                if (keys == 0)
+                    MessageBox.Show("No hotkeys registered! We will now close so you can go add some hotkeys.", "No Hotkeys?",
+                                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                Application.Exit();
+                return;
+            }
         }
 
         /// <summary>
@@ -115,15 +63,64 @@ namespace BetterInputMacros
         protected override void WndProc(ref Message m)
         {
             // If we get a hotkey message, filter it out and don't pass it to the base function,
-            // instead pass it to the hotkey helper
+            // instead switch to the scene it represents
             if (m.Msg == 0x312) // WM_HOTKEY
             {
-                _hotkeyHelper.ProcessMessage(m);
+                int id = m.WParam.ToInt32();
 
-                return;
+                if (!_obsHelper.IsConnected)
+                    return;
+
+                if (configuration?.CommandsDictionary.TryGetValue((uint)id, out var scene) == true &&
+                    !string.IsNullOrWhiteSpace(scene))
+                {
+                    _obsHelper.SetScene(scene);
+                }
             }
 
             base.WndProc(ref m);
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            // Disconnect and unregister
+            _obsHelper.Disconnect();
+
+            _hotkeyHelper.UnregisterHotKeys();
+        }
+
+        private void obsHelper_OnConnected(object? sender, EventArgs e)
+        {
+            obsStatusLabel.BeginInvoke(() => obsStatusLabel.Text = "OBS: Connected");
+
+            connectionAttempts = 0;
+        }
+
+        private void obsHelper_OnDisconnected(object? sender, string e)
+        {
+            connectionAttempts++;
+            obsStatusLabel.BeginInvoke(() => obsStatusLabel.Text = "OBS: Disconnected");
+
+            if (connectionAttempts > 5)
+            {
+                MessageBox.Show("Lost connection to OBS! Probably because OBS closed or smth, idk.", "Uh oh, Stinky",
+                                MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                Application.Exit();
+            }
+            else if (e == null && configuration?.Server != null)
+            {
+                _obsHelper.Connect(configuration.Server, configuration.Password ?? "");
+            }
+            else if (e != "User requested disconnect" && e != null)
+            {
+                if (e.StartsWith("Authentication"))
+                {
+                    MessageBox.Show("OBS authentication failed!", "OBS Error",
+                                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Application.Exit();
+                }
+            }
         }
     }
 }
